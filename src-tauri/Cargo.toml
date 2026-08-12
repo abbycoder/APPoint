@@ -1,0 +1,26 @@
+[package]
+name = "appoint"
+version = "0.1.0"
+description = "An appointment app tracker with reminders"
+edition = "2021"
+
+[[bin]]
+name = "APPoint"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-notification = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
