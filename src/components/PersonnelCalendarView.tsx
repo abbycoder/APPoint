@@ -10,6 +10,8 @@ import { AssignmentCard } from "./AssignmentCard";
 
 interface PersonnelCalendarViewProps {
   assignments: Assignment[];
+  monthCursor: Date;
+  onMonthChange: (month: Date) => void;
   onEdit: (a: Assignment) => void;
   onDelete: (id: string) => void;
   onNew: (date?: Date) => void;
@@ -34,14 +36,13 @@ const PAGE_SIZE = 3;
 
 export function PersonnelCalendarView({
   assignments,
+  monthCursor,
+  onMonthChange,
   onEdit,
   onDelete,
   onNew,
 }: PersonnelCalendarViewProps) {
   const today = new Date();
-  const [monthCursor, setMonthCursor] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1),
-  );
   const [selected, setSelected] = useState(today);
   const [page, setPage] = useState(0);
 
@@ -69,21 +70,21 @@ export function PersonnelCalendarView({
   }, [assignments, today]);
 
   function changeMonth(delta: number) {
-    setMonthCursor(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1),
+    onMonthChange(
+      new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1),
     );
   }
 
   function jumpToMonth(monthIndex: number) {
-    setMonthCursor((prev) => new Date(prev.getFullYear(), monthIndex, 1));
+    onMonthChange(new Date(monthCursor.getFullYear(), monthIndex, 1));
   }
 
   function jumpToYear(year: number) {
-    setMonthCursor((prev) => new Date(year, prev.getMonth(), 1));
+    onMonthChange(new Date(year, monthCursor.getMonth(), 1));
   }
 
   function goToday() {
-    setMonthCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+    onMonthChange(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelected(today);
   }
 

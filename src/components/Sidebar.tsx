@@ -5,13 +5,26 @@ import {
   UnavailablePeriod,
 } from "../types";
 import { useClock } from "../store/useClock";
-import { formatClock, isSameDay, getStatus, parseDateOnly } from "../lib/time";
+import {
+  formatClock,
+  isSameDay,
+  getStatus,
+  itemsInMonth,
+  parseDateOnly,
+} from "../lib/time";
+import {
+  exportAppointmentsToPdf,
+  exportAssignmentsToPdf,
+} from "../lib/exportPdf";
 
 export type SidebarMode = "appointments" | "personnel";
 
 interface SidebarProps {
   mode: SidebarMode;
   onModeChange: (mode: SidebarMode) => void;
+  /** The month currently showing on whichever calendar is active — exports are scoped to this. */
+  monthCursor: Date;
+  showToast: (message: string, variant?: "success" | "error") => void;
 
   appointments: Appointment[];
   unavailablePeriods: UnavailablePeriod[];
@@ -29,6 +42,8 @@ interface SidebarProps {
 export function Sidebar({
   mode,
   onModeChange,
+  monthCursor,
+  showToast,
   appointments,
   unavailablePeriods,
   onNewAppointment,
@@ -42,12 +57,19 @@ export function Sidebar({
 }: SidebarProps) {
   const now = useClock();
 
-  const items = mode === "appointments" ? appointments : assignments;
+  const items: (Appointment | Assignment)[] =
+    mode === "appointments" ? appointments : assignments;
   const today = items.filter((a) => isSameDay(new Date(a.datetime), now));
   const soon = items.filter((a) => getStatus(a.datetime, now) === "soon");
   const upcoming = items.filter(
     (a) => getStatus(a.datetime, now) === "upcoming",
   );
+
+  const monthLabel = monthCursor.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+  const itemsThisMonth = itemsInMonth(items, monthCursor);
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-rule bg-ink px-6 py-8 text-paper">
@@ -80,6 +102,29 @@ export function Sidebar({
           className="mt-4 w-full rounded-md bg-navy px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-navy-light active:scale-[0.98]"
         >
           {mode === "appointments" ? "New appointment" : "New assignment"}
+        </button>
+
+        <button
+          onClick={() => {
+            try {
+              const filename =
+                mode === "appointments"
+                  ? exportAppointmentsToPdf(
+                      itemsInMonth(appointments, monthCursor) as Appointment[],
+                    )
+                  : exportAssignmentsToPdf(
+                      itemsInMonth(assignments, monthCursor) as Assignment[],
+                    );
+              showToast(`Saved "${filename}" to your Downloads folder`);
+            } catch {
+              showToast("Export failed — please try again.", "error");
+            }
+          }}
+          disabled={itemsThisMonth.length === 0}
+          title={`Export ${monthLabel}`}
+          className="mt-2 w-full rounded-md border border-paper/20 bg-paper/5 px-4 py-2 text-center text-xs font-medium text-paper transition hover:bg-paper/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-paper/5"
+        >
+          Export {monthLabel} (.pdf)
         </button>
 
         <dl className="mt-10 space-y-5">

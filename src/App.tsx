@@ -17,9 +17,17 @@ import { AppointmentForm } from "./components/AppointmentForm";
 import { AssignmentForm } from "./components/AssignmentForm";
 import { UnavailableForm } from "./components/UnavailableForm";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { Toast } from "./components/Toast";
+import { useToast } from "./store/useToast";
 
 export default function App() {
   const [mode, setMode] = useState<SidebarMode>("appointments");
+  const { toast, showToast } = useToast();
+
+  const today = new Date();
+  const [monthCursor, setMonthCursor] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1),
+  );
 
   // Appointments
   const {
@@ -132,6 +140,8 @@ export default function App() {
       <Sidebar
         mode={mode}
         onModeChange={setMode}
+        monthCursor={monthCursor}
+        showToast={showToast}
         appointments={appointments}
         unavailablePeriods={periods}
         onNewAppointment={() => openNewAppointment()}
@@ -147,7 +157,9 @@ export default function App() {
       <main className="flex-1 overflow-y-auto px-10 py-10">
         <div className="mx-auto max-w-2xl">
           <div className="flex items-baseline gap-2">
-            <h1 className="font-display font-bold text-3xl text-ink">APPoint</h1>
+            <h1 className="font-display font-bold text-3xl text-ink">
+              APPoint
+            </h1>
             <span className="italic text-sm text-ink/60">
               Your appointments, simplified.
             </span>
@@ -166,6 +178,8 @@ export default function App() {
                 <CalendarView
                   appointments={appointments}
                   unavailablePeriods={periods}
+                  monthCursor={monthCursor}
+                  onMonthChange={setMonthCursor}
                   onEdit={openEditAppointment}
                   onDelete={handleDeleteAppointment}
                   onNew={openNewAppointment}
@@ -176,6 +190,8 @@ export default function App() {
             ) : (
               <PersonnelCalendarView
                 assignments={assignments}
+                monthCursor={monthCursor}
+                onMonthChange={setMonthCursor}
                 onEdit={openEditAssignment}
                 onDelete={handleDeleteAssignment}
                 onNew={openNewAssignment}
@@ -240,6 +256,8 @@ export default function App() {
           onCancel={() => setDeleteAssignmentTarget(null)}
         />
       )}
+
+      <Toast toast={toast} />
     </div>
   );
 }

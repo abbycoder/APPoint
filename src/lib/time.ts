@@ -124,6 +124,20 @@ export function assignmentsOnDay(list: Assignment[], day: Date): Assignment[] {
   );
 }
 
+/** Filters any datetime-bearing list down to entries in the same calendar month as `month`. */
+export function itemsInMonth<T extends { datetime: string }>(
+  list: T[],
+  month: Date,
+): T[] {
+  return list.filter((item) => {
+    const d = new Date(item.datetime);
+    return (
+      d.getFullYear() === month.getFullYear() &&
+      d.getMonth() === month.getMonth()
+    );
+  });
+}
+
 /** Formats a Date as `YYYY-MM-DDTHH:mm` for use in <input type="datetime-local">. */
 export function toDatetimeLocalValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
