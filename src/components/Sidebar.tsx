@@ -16,6 +16,7 @@ import {
   exportAppointmentsToPdf,
   exportAssignmentsToPdf,
 } from "../lib/exportPdf";
+import { openExternalLink } from "../lib/openExternalLink";
 
 export type SidebarMode = "appointments" | "personnel";
 
@@ -107,22 +108,23 @@ export function Sidebar({
         <button
           onClick={() => {
             try {
-              const filename =
-                mode === "appointments"
-                  ? exportAppointmentsToPdf(
-                      itemsInMonth(appointments, monthCursor) as Appointment[],
-                    )
-                  : exportAssignmentsToPdf(
-                      itemsInMonth(assignments, monthCursor) as Assignment[],
-                    );
-              showToast(`Saved "${filename}" to your Downloads folder`);
+              if (mode === "appointments") {
+                exportAppointmentsToPdf(
+                  itemsInMonth(appointments, monthCursor) as Appointment[],
+                );
+              } else {
+                exportAssignmentsToPdf(
+                  itemsInMonth(assignments, monthCursor) as Assignment[],
+                );
+              }
+              showToast(`Exported ${monthLabel} to PDF`);
             } catch {
               showToast("Export failed — please try again.", "error");
             }
           }}
           disabled={itemsThisMonth.length === 0}
           title={`Export ${monthLabel}`}
-          className="mt-2 w-full rounded-md border border-paper/20 bg-paper/5 px-4 py-2 text-center text-xs font-medium text-paper transition hover:bg-paper/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-paper/5"
+          className="mt-2 w-full text-center text-xs font-medium text-navy-light hover:underline disabled:cursor-not-allowed disabled:text-paper/25 disabled:no-underline"
         >
           Export {monthLabel} (.pdf)
         </button>
@@ -199,6 +201,20 @@ export function Sidebar({
           )}
         </p>
       </div>
+
+      <p className="mt-3 text-center font-mono text-[10px] text-paper/30">
+        © {new Date().getFullYear()}{" "}
+        <a
+          href="https://andreiadlawan.vercel.app/"
+          onClick={(e) => {
+            e.preventDefault();
+            openExternalLink("https://andreiadlawan.vercel.app/");
+          }}
+          className="cursor-pointer text-paper/50 underline decoration-paper/20 underline-offset-2 hover:text-paper/80"
+        >
+          Andrei Gabrielle Adlawan
+        </a>
+      </p>
     </aside>
   );
 }
