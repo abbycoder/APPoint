@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Update } from "@tauri-apps/plugin-updater";
+
 import {
   Appointment,
   AppointmentDraft,
@@ -7,11 +9,13 @@ import {
   Personnel,
   PersonnelDraft,
 } from "./types";
+
 import { useAppointments } from "./store/useAppointments";
 import { useUnavailablePeriods } from "./store/useUnavailablePeriods";
 import { usePersonnel } from "./store/usePersonnel";
 import { useAssignments } from "./store/useAssignments";
 import { useNotificationScheduler } from "./store/useNotificationScheduler";
+
 import { Sidebar, SidebarMode } from "./components/Sidebar";
 import { CalendarView } from "./components/CalendarView";
 import { PersonnelCalendarView } from "./components/PersonnelCalendarView";
@@ -22,21 +26,76 @@ import { PersonnelForm } from "./components/PersonnelForm";
 import { PersonnelListModal } from "./components/PersonnelListModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Toast } from "./components/Toast";
+
 import { useToast } from "./store/useToast";
+
+import { checkForUpdates, installUpdate } from "./lib/updater";
 
 export default function App() {
   const [mode, setMode] = useState<SidebarMode>("appointments");
+
+  // --------------------------------------------------
+  // Updater
+  // --------------------------------------------------
+
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkForAppUpdate() {
+      const update = await checkForUpdates();
+
+      if (!cancelled && update) {
+        setAvailableUpdate(update);
+      }
+    }
+
+    checkForAppUpdate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleInstallUpdate() {
+    if (!availableUpdate) return;
+
+    try {
+      setIsUpdating(true);
+      setUpdateError(null);
+
+      await installUpdate(availableUpdate);
+    } catch (error) {
+      console.error("Update installation failed:", error);
+
+      setIsUpdating(false);
+      setUpdateError("Unable to install the update. Please try again later.");
+    }
+  }
+
+  // --------------------------------------------------
+  // Toast
+  // --------------------------------------------------
+
   const { toast, showToast } = useToast();
 
-  // The month currently showing on whichever calendar is active. Shared
-  // across both calendars (rather than each owning its own) so the
-  // Sidebar's export button always knows what's on screen right now.
+  // --------------------------------------------------
+  // Calendar
+  // --------------------------------------------------
+
   const today = new Date();
+
   const [monthCursor, setMonthCursor] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1),
   );
 
+  // --------------------------------------------------
   // Appointments
+  // --------------------------------------------------
+
   const {
     appointments,
     isLoading: appointmentsLoading,
@@ -45,15 +104,21 @@ export default function App() {
     deleteAppointment,
     markNotified,
   } = useAppointments();
+
   const { periods, addPeriod, removePeriod } = useUnavailablePeriods();
+
   useNotificationScheduler(appointments, markNotified);
 
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
+
   const [apptFormOpen, setApptFormOpen] = useState(false);
+
   const [apptPrefillDate, setApptPrefillDate] = useState<string | null>(null);
+
   const [deleteApptTarget, setDeleteApptTarget] = useState<Appointment | null>(
     null,
   );
+
   const [unavailableFormOpen, setUnavailableFormOpen] = useState(false);
 
   function openNewAppointment(date?: Date) {
@@ -74,6 +139,7 @@ export default function App() {
     } else {
       addAppointment(draft);
     }
+
     setApptFormOpen(false);
     setEditingAppt(null);
     setApptPrefillDate(null);
@@ -84,13 +150,20 @@ export default function App() {
   }
 
   function confirmDeleteAppointment() {
-    if (deleteApptTarget) deleteAppointment(deleteApptTarget.id);
+    if (deleteApptTarget) {
+      deleteAppointment(deleteApptTarget.id);
+    }
+
     setDeleteApptTarget(null);
   }
 
-  // Personnel
+  // --------------------------------------------------
+  // Personnel / Assignments
+  // --------------------------------------------------
+
   const { personnel, addPersonnel, updatePersonnel, removePersonnel } =
     usePersonnel();
+
   const {
     assignments,
     isLoading: assignmentsLoading,
@@ -102,10 +175,13 @@ export default function App() {
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(
     null,
   );
+
   const [assignmentFormOpen, setAssignmentFormOpen] = useState(false);
+
   const [assignmentPrefillDate, setAssignmentPrefillDate] = useState<
     string | null
   >(null);
+
   const [deleteAssignmentTarget, setDeleteAssignmentTarget] =
     useState<Assignment | null>(null);
 
@@ -127,6 +203,7 @@ export default function App() {
     } else {
       addAssignment(draft);
     }
+
     setAssignmentFormOpen(false);
     setEditingAssignment(null);
     setAssignmentPrefillDate(null);
@@ -137,17 +214,25 @@ export default function App() {
   }
 
   function confirmDeleteAssignment() {
-    if (deleteAssignmentTarget) deleteAssignment(deleteAssignmentTarget.id);
+    if (deleteAssignmentTarget) {
+      deleteAssignment(deleteAssignmentTarget.id);
+    }
+
     setDeleteAssignmentTarget(null);
   }
 
-  // Personnel: "Add Personnel" and "View Personnel" in the sidebar just
-  // open these modals — the actual add/edit/delete happens from within them.
+  // --------------------------------------------------
+  // Personnel
+  // --------------------------------------------------
+
   const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(
     null,
   );
+
   const [personnelFormOpen, setPersonnelFormOpen] = useState(false);
+
   const [personnelListOpen, setPersonnelListOpen] = useState(false);
+
   const [deletePersonnelTarget, setDeletePersonnelTarget] =
     useState<Personnel | null>(null);
 
@@ -167,6 +252,7 @@ export default function App() {
     } else {
       addPersonnel(draft);
     }
+
     setPersonnelFormOpen(false);
     setEditingPersonnel(null);
   }
@@ -176,14 +262,99 @@ export default function App() {
   }
 
   function confirmDeletePersonnel() {
-    if (deletePersonnelTarget) removePersonnel(deletePersonnelTarget.id);
+    if (deletePersonnelTarget) {
+      removePersonnel(deletePersonnelTarget.id);
+    }
+
     setDeletePersonnelTarget(null);
   }
 
   const isAppointments = mode === "appointments";
 
+  // --------------------------------------------------
+  // Render
+  // --------------------------------------------------
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-paper">
+      {/* ==================================================
+          UPDATE DIALOG
+          ================================================== */}
+
+      {availableUpdate && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-6">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="font-display text-2xl font-bold text-ink">
+              APPoint Update Available
+            </h2>
+
+            <p className="mt-3 text-sm text-ink/70">
+              A new version of APPoint is available.
+            </p>
+
+            <div className="mt-4 rounded-xl bg-paper p-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-ink/60">Current version</span>
+
+                <span className="font-medium text-ink">
+                  {availableUpdate.currentVersion}
+                </span>
+              </div>
+
+              <div className="mt-2 flex justify-between">
+                <span className="text-ink/60">New version</span>
+
+                <span className="font-semibold text-ink">
+                  {availableUpdate.version}
+                </span>
+              </div>
+            </div>
+
+            {availableUpdate.body && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">
+                  What's new
+                </p>
+
+                <p className="mt-2 whitespace-pre-line text-sm text-ink/70">
+                  {availableUpdate.body}
+                </p>
+              </div>
+            )}
+
+            {updateError && (
+              <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {updateError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => setAvailableUpdate(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-ink/70 hover:bg-black/5 disabled:opacity-50"
+              >
+                Later
+              </button>
+
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={handleInstallUpdate}
+                className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isUpdating ? "Updating..." : "Update Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================
+          SIDEBAR
+          ================================================== */}
+
       <Sidebar
         mode={mode}
         onModeChange={setMode}
@@ -201,16 +372,22 @@ export default function App() {
         onViewPersonnel={() => setPersonnelListOpen(true)}
       />
 
+      {/* ==================================================
+          MAIN CONTENT
+          ================================================== */}
+
       <main className="flex-1 overflow-y-auto px-10 py-10">
         <div className="mx-auto max-w-2xl">
           <div className="flex items-baseline gap-2">
             <h1 className="font-display font-bold text-3xl text-ink">
               APPoint
             </h1>
+
             <span className="italic text-sm text-ink/60">
               Your appointments, simplified.
             </span>
           </div>
+
           <p className="mt-2 text-sm text-ink/60">
             {isAppointments
               ? "Who's visiting, when, and why."
@@ -248,6 +425,10 @@ export default function App() {
         </div>
       </main>
 
+      {/* ==================================================
+          APPOINTMENT FORM
+          ================================================== */}
+
       {apptFormOpen && (
         <AppointmentForm
           initial={editingAppt}
@@ -262,6 +443,10 @@ export default function App() {
         />
       )}
 
+      {/* ==================================================
+          UNAVAILABLE FORM
+          ================================================== */}
+
       {unavailableFormOpen && (
         <UnavailableForm
           onSave={(draft) => {
@@ -272,6 +457,10 @@ export default function App() {
         />
       )}
 
+      {/* ==================================================
+          DELETE APPOINTMENT
+          ================================================== */}
+
       {deleteApptTarget && (
         <ConfirmDialog
           title="Delete this appointment?"
@@ -280,6 +469,10 @@ export default function App() {
           onCancel={() => setDeleteApptTarget(null)}
         />
       )}
+
+      {/* ==================================================
+          ASSIGNMENT FORM
+          ================================================== */}
 
       {assignmentFormOpen && (
         <AssignmentForm
@@ -295,6 +488,10 @@ export default function App() {
         />
       )}
 
+      {/* ==================================================
+          DELETE ASSIGNMENT
+          ================================================== */}
+
       {deleteAssignmentTarget && (
         <ConfirmDialog
           title="Delete this assignment?"
@@ -303,6 +500,10 @@ export default function App() {
           onCancel={() => setDeleteAssignmentTarget(null)}
         />
       )}
+
+      {/* ==================================================
+          PERSONNEL LIST
+          ================================================== */}
 
       {personnelListOpen && (
         <PersonnelListModal
@@ -315,6 +516,10 @@ export default function App() {
         />
       )}
 
+      {/* ==================================================
+          PERSONNEL FORM
+          ================================================== */}
+
       {personnelFormOpen && (
         <PersonnelForm
           initial={editingPersonnel}
@@ -326,6 +531,10 @@ export default function App() {
         />
       )}
 
+      {/* ==================================================
+          DELETE PERSONNEL
+          ================================================== */}
+
       {deletePersonnelTarget && (
         <ConfirmDialog
           title="Delete this person?"
@@ -334,6 +543,10 @@ export default function App() {
           onCancel={() => setDeletePersonnelTarget(null)}
         />
       )}
+
+      {/* ==================================================
+          TOAST
+          ================================================== */}
 
       <Toast toast={toast} />
     </div>

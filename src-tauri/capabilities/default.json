@@ -10,6 +10,7 @@
     "notification:default",
     "store:default",
     "opener:default",
+    "process:default",
     "updater:default"
   ]
 }

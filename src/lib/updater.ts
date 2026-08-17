@@ -1,49 +1,21 @@
-import { check } from "@tauri-apps/plugin-updater";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
-export interface UpdateInfo {
-  available: boolean;
-  currentVersion?: string;
-  version?: string;
-  body?: string | null;
-  update?: Awaited<ReturnType<typeof check>>;
-  error?: unknown;
-}
-
-export async function checkForUpdates(): Promise<UpdateInfo> {
+export async function checkForUpdates(): Promise<Update | null> {
   try {
-    const update = await check();
-
-    if (!update) {
-      return {
-        available: false,
-      };
-    }
-
-    return {
-      available: true,
-      currentVersion: update.currentVersion,
-      version: update.version,
-      body: update.body,
-      update,
-    };
+    return await check();
   } catch (error) {
-    console.error("Update check failed:", error);
-
-    return {
-      available: false,
-      error,
-    };
+    console.error("Failed to check for updates:", error);
+    return null;
   }
 }
 
-export async function downloadAndInstallUpdate() {
-  const result = await check();
-
-  if (!result) {
-    return false;
+export async function installUpdate(update: Update): Promise<void> {
+  try {
+    await update.downloadAndInstall();
+    await relaunch();
+  } catch (error) {
+    console.error("Failed to install update:", error);
+    throw error;
   }
-
-  await result.downloadAndInstall();
-
-  return true;
 }
