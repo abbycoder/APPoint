@@ -8,59 +8,8 @@ on:
       - "v*"
 
 jobs:
-  # --------------------------------------------------
-  # Create the GitHub Release once
-  # --------------------------------------------------
-
-  create-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    outputs:
-      release_id: ${{ steps.release.outputs.release_id }}
-
-    steps:
-      - name: Create release
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          set -e
-
-          echo "Creating release for ${TAG_NAME}"
-
-          RELEASE_ID=$(gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2026-03-10" \
-            "/repos/${GITHUB_REPOSITORY}/releases" \
-            -f "tag_name=${TAG_NAME}" \
-            -f "name=APPoint ${TAG_NAME}" \
-            -f "body=## APPoint ${TAG_NAME}
-
-          Download the installer for your platform below.
-
-          This release includes automatic update support." \
-            -F "draft=false" \
-            -F "prerelease=false" \
-            --jq '.id')
-
-          echo "Release ID: ${RELEASE_ID}"
-          echo "release_id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
-
-  # --------------------------------------------------
-  # Build all platforms
-  # --------------------------------------------------
-
   publish-tauri:
     name: Build APPoint (${{ matrix.platform }}, ${{ matrix.args }})
-
-    needs:
-      - create-release
 
     permissions:
       contents: write
@@ -97,6 +46,7 @@ jobs:
       VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
     steps:
+
       # --------------------------------------------------
       # Checkout
       # --------------------------------------------------
@@ -194,7 +144,7 @@ jobs:
           fi
 
       # --------------------------------------------------
-      # Build and upload Tauri artifacts
+      # Build and publish Tauri application
       # --------------------------------------------------
 
       - name: Build and release APPoint
@@ -208,11 +158,16 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
         with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
-
           tagName: ${{ github.ref_name }}
 
           releaseName: "APPoint ${{ github.ref_name }}"
+
+          releaseBody: |
+            ## APPoint ${{ github.ref_name }}
+
+            Download the installer for your platform below.
+
+            This release includes automatic update support.
 
           releaseDraft: false
 
