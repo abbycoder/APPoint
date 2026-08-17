@@ -49,10 +49,18 @@ export default function App() {
     let cancelled = false;
 
     async function checkForAppUpdate() {
-      const update = await checkForUpdates();
+      try {
+        const update = await checkForUpdates();
 
-      if (!cancelled && update) {
-        setAvailableUpdate(update);
+        if (!cancelled && update) {
+          setAvailableUpdate(update);
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!cancelled) {
+          setUpdateError(String(error));
+        }
       }
     }
 
