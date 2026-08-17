@@ -5,32 +5,30 @@ export async function checkForUpdates(): Promise<Update | null> {
   try {
     const update = await check();
 
+    console.log("========== APPoint UPDATER ==========");
+    console.log("Update object:", update);
+
     if (update) {
-      console.log(
-        `Update available: ${update.currentVersion} → ${update.version}`,
-      );
+      console.log("Current version:", update.currentVersion);
+      console.log("Available version:", update.version);
+      console.log("Update URL:", update.downloadAndInstall);
     } else {
-      console.log("APPoint is up to date.");
+      console.log("NO UPDATE AVAILABLE");
     }
 
     return update;
   } catch (error) {
-    console.error("Failed to check for updates:", error);
-    return null;
+    console.error("========== APPoint UPDATER ERROR ==========");
+    console.error(error);
+    throw error;
   }
 }
 
 export async function installUpdate(update: Update): Promise<void> {
-  try {
-    console.log(
-      `Installing APPoint update: ${update.currentVersion} → ${update.version}`,
-    );
+  console.log(
+    `Installing APPoint update: ${update.currentVersion} → ${update.version}`,
+  );
 
-    await update.downloadAndInstall();
-
-    await relaunch();
-  } catch (error) {
-    console.error("Failed to install update:", error);
-    throw error;
-  }
+  await update.downloadAndInstall();
+  await relaunch();
 }
