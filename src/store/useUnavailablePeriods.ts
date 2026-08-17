@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  updateDoc,
 } from "firebase/firestore";
 import { UnavailableDraft, UnavailablePeriod } from "../types";
 import { db, ensureSignedIn } from "../lib/firebase";
@@ -41,9 +42,16 @@ export function useUnavailablePeriods() {
     });
   }, []);
 
+  const updatePeriod = useCallback(
+    async (id: string, draft: UnavailableDraft) => {
+      await updateDoc(doc(db, COLLECTION, id), { ...draft });
+    },
+    [],
+  );
+
   const removePeriod = useCallback(async (id: string) => {
     await deleteDoc(doc(db, COLLECTION, id));
   }, []);
 
-  return { periods, addPeriod, removePeriod };
+  return { periods, addPeriod, updatePeriod, removePeriod };
 }

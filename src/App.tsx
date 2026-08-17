@@ -8,6 +8,8 @@ import {
   AssignmentDraft,
   Personnel,
   PersonnelDraft,
+  UnavailablePeriod,
+  UnavailableDraft,
 } from "./types";
 
 import { useAppointments } from "./store/useAppointments";
@@ -22,6 +24,7 @@ import { PersonnelCalendarView } from "./components/PersonnelCalendarView";
 import { AppointmentForm } from "./components/AppointmentForm";
 import { AssignmentForm } from "./components/AssignmentForm";
 import { UnavailableForm } from "./components/UnavailableForm";
+import { UnavailableListModal } from "./components/UnavailableListModal";
 import { PersonnelForm } from "./components/PersonnelForm";
 import { PersonnelListModal } from "./components/PersonnelListModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -105,7 +108,8 @@ export default function App() {
     markNotified,
   } = useAppointments();
 
-  const { periods, addPeriod, removePeriod } = useUnavailablePeriods();
+  const { periods, addPeriod, updatePeriod, removePeriod } =
+    useUnavailablePeriods();
 
   useNotificationScheduler(appointments, markNotified);
 
@@ -120,6 +124,12 @@ export default function App() {
   );
 
   const [unavailableFormOpen, setUnavailableFormOpen] = useState(false);
+  const [unavailableListOpen, setUnavailableListOpen] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState<UnavailablePeriod | null>(
+    null,
+  );
+  const [deletePeriodTarget, setDeletePeriodTarget] =
+    useState<UnavailablePeriod | null>(null);
 
   function openNewAppointment(date?: Date) {
     setEditingAppt(null);
@@ -131,6 +141,37 @@ export default function App() {
     setEditingAppt(appt);
     setApptPrefillDate(null);
     setApptFormOpen(true);
+  }
+
+  function openNewPeriod() {
+    setEditingPeriod(null);
+    setUnavailableFormOpen(true);
+  }
+
+  function openEditPeriod(p: UnavailablePeriod) {
+    setEditingPeriod(p);
+    setUnavailableFormOpen(true);
+  }
+
+  function handleSavePeriod(draft: UnavailableDraft) {
+    if (editingPeriod) {
+      updatePeriod(editingPeriod.id, draft);
+    } else {
+      addPeriod(draft);
+    }
+    setUnavailableFormOpen(false);
+    setEditingPeriod(null);
+  }
+
+  function handleDeletePeriod(id: string) {
+    setDeletePeriodTarget(periods.find((p) => p.id === id) ?? null);
+  }
+
+  function confirmDeletePeriod() {
+    if (deletePeriodTarget) {
+      removePeriod(deletePeriodTarget.id);
+    }
+    setDeletePeriodTarget(null);
   }
 
   function handleSaveAppointment(draft: AppointmentDraft) {
@@ -363,8 +404,8 @@ export default function App() {
         appointments={appointments}
         unavailablePeriods={periods}
         onNewAppointment={() => openNewAppointment()}
-        onMarkUnavailable={() => setUnavailableFormOpen(true)}
-        onRemoveUnavailable={removePeriod}
+        onMarkUnavailable={openNewPeriod}
+        onViewUnavailable={() => setUnavailableListOpen(true)}
         assignments={assignments}
         personnel={personnel}
         onNewAssignment={() => openNewAssignment()}
@@ -444,16 +485,44 @@ export default function App() {
       )}
 
       {/* ==================================================
+          UNAVAILABLE LIST
+          ================================================== */}
+
+      {unavailableListOpen && (
+        <UnavailableListModal
+          periods={periods}
+          onAdd={openNewPeriod}
+          onEdit={openEditPeriod}
+          onDelete={handleDeletePeriod}
+          onClose={() => setUnavailableListOpen(false)}
+        />
+      )}
+
+      {/* ==================================================
           UNAVAILABLE FORM
           ================================================== */}
 
       {unavailableFormOpen && (
         <UnavailableForm
-          onSave={(draft) => {
-            addPeriod(draft);
+          initial={editingPeriod}
+          onSave={handleSavePeriod}
+          onClose={() => {
             setUnavailableFormOpen(false);
+            setEditingPeriod(null);
           }}
-          onClose={() => setUnavailableFormOpen(false)}
+        />
+      )}
+
+      {/* ==================================================
+          DELETE UNAVAILABLE PERIOD
+          ================================================== */}
+
+      {deletePeriodTarget && (
+        <ConfirmDialog
+          title="Delete this unavailable period?"
+          description={`${deletePeriodTarget.label} — this can't be undone.`}
+          onConfirm={confirmDeletePeriod}
+          onCancel={() => setDeletePeriodTarget(null)}
         />
       )}
 
@@ -538,7 +607,7 @@ export default function App() {
       {deletePersonnelTarget && (
         <ConfirmDialog
           title="Delete this person?"
-          description={`${deletePersonnelTarget.name} will be removed from the roster. Their existing assignments will keep this name but won't be linked to anyone. This can't be undone.`}
+          description={`${deletePersonnelTarget.name} will be removed from the list. Their existing assignments will keep this name but won't be linked to anyone. This can't be undone.`}
           onConfirm={confirmDeletePersonnel}
           onCancel={() => setDeletePersonnelTarget(null)}
         />
