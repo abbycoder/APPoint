@@ -4,6 +4,8 @@ import {
   AppointmentDraft,
   Assignment,
   AssignmentDraft,
+  Personnel,
+  PersonnelDraft,
 } from "./types";
 import { useAppointments } from "./store/useAppointments";
 import { useUnavailablePeriods } from "./store/useUnavailablePeriods";
@@ -16,6 +18,8 @@ import { PersonnelCalendarView } from "./components/PersonnelCalendarView";
 import { AppointmentForm } from "./components/AppointmentForm";
 import { AssignmentForm } from "./components/AssignmentForm";
 import { UnavailableForm } from "./components/UnavailableForm";
+import { PersonnelForm } from "./components/PersonnelForm";
+import { PersonnelListModal } from "./components/PersonnelListModal";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Toast } from "./components/Toast";
 import { useToast } from "./store/useToast";
@@ -24,6 +28,9 @@ export default function App() {
   const [mode, setMode] = useState<SidebarMode>("appointments");
   const { toast, showToast } = useToast();
 
+  // The month currently showing on whichever calendar is active. Shared
+  // across both calendars (rather than each owning its own) so the
+  // Sidebar's export button always knows what's on screen right now.
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1),
@@ -82,7 +89,8 @@ export default function App() {
   }
 
   // Personnel
-  const { personnel, addPersonnel, removePersonnel } = usePersonnel();
+  const { personnel, addPersonnel, updatePersonnel, removePersonnel } =
+    usePersonnel();
   const {
     assignments,
     isLoading: assignmentsLoading,
@@ -133,6 +141,45 @@ export default function App() {
     setDeleteAssignmentTarget(null);
   }
 
+  // Personnel: "Add Personnel" and "View Personnel" in the sidebar just
+  // open these modals — the actual add/edit/delete happens from within them.
+  const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(
+    null,
+  );
+  const [personnelFormOpen, setPersonnelFormOpen] = useState(false);
+  const [personnelListOpen, setPersonnelListOpen] = useState(false);
+  const [deletePersonnelTarget, setDeletePersonnelTarget] =
+    useState<Personnel | null>(null);
+
+  function openNewPersonnel() {
+    setEditingPersonnel(null);
+    setPersonnelFormOpen(true);
+  }
+
+  function openEditPersonnel(p: Personnel) {
+    setEditingPersonnel(p);
+    setPersonnelFormOpen(true);
+  }
+
+  function handleSavePersonnel(draft: PersonnelDraft) {
+    if (editingPersonnel) {
+      updatePersonnel(editingPersonnel.id, draft);
+    } else {
+      addPersonnel(draft);
+    }
+    setPersonnelFormOpen(false);
+    setEditingPersonnel(null);
+  }
+
+  function handleDeletePersonnel(id: string) {
+    setDeletePersonnelTarget(personnel.find((p) => p.id === id) ?? null);
+  }
+
+  function confirmDeletePersonnel() {
+    if (deletePersonnelTarget) removePersonnel(deletePersonnelTarget.id);
+    setDeletePersonnelTarget(null);
+  }
+
   const isAppointments = mode === "appointments";
 
   return (
@@ -150,8 +197,8 @@ export default function App() {
         assignments={assignments}
         personnel={personnel}
         onNewAssignment={() => openNewAssignment()}
-        onAddPersonnel={(name) => addPersonnel({ name })}
-        onRemovePersonnel={removePersonnel}
+        onAddPersonnel={openNewPersonnel}
+        onViewPersonnel={() => setPersonnelListOpen(true)}
       />
 
       <main className="flex-1 overflow-y-auto px-10 py-10">
@@ -254,6 +301,37 @@ export default function App() {
           description={`${deleteAssignmentTarget.personnelName} · ${deleteAssignmentTarget.description} — this can't be undone.`}
           onConfirm={confirmDeleteAssignment}
           onCancel={() => setDeleteAssignmentTarget(null)}
+        />
+      )}
+
+      {personnelListOpen && (
+        <PersonnelListModal
+          personnel={personnel}
+          assignments={assignments}
+          onAdd={openNewPersonnel}
+          onEdit={openEditPersonnel}
+          onDelete={handleDeletePersonnel}
+          onClose={() => setPersonnelListOpen(false)}
+        />
+      )}
+
+      {personnelFormOpen && (
+        <PersonnelForm
+          initial={editingPersonnel}
+          onSave={handleSavePersonnel}
+          onClose={() => {
+            setPersonnelFormOpen(false);
+            setEditingPersonnel(null);
+          }}
+        />
+      )}
+
+      {deletePersonnelTarget && (
+        <ConfirmDialog
+          title="Delete this person?"
+          description={`${deletePersonnelTarget.name} will be removed from the roster. Their existing assignments will keep this name but won't be linked to anyone. This can't be undone.`}
+          onConfirm={confirmDeletePersonnel}
+          onCancel={() => setDeletePersonnelTarget(null)}
         />
       )}
 

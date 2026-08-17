@@ -5,26 +5,25 @@ import {
   UnavailablePeriod,
 } from "../types";
 import { useClock } from "../store/useClock";
-import {
-  formatClock,
-  isSameDay,
-  getStatus,
-  itemsInMonth,
-  parseDateOnly,
-} from "../lib/time";
+import { formatClock, isSameDay, getStatus, itemsInMonth } from "../lib/time";
 import {
   exportAppointmentsToPdf,
   exportAssignmentsToPdf,
 } from "../lib/exportPdf";
 import { openExternalLink } from "../lib/openExternalLink";
+import { UpcomingModal } from "./UpcomingModal";
+import { UnavailableModal } from "./UnavailableModal";
+import { useState } from "react";
 
 export type SidebarMode = "appointments" | "personnel";
 
 interface SidebarProps {
   mode: SidebarMode;
   onModeChange: (mode: SidebarMode) => void;
+
   /** The month currently showing on whichever calendar is active — exports are scoped to this. */
   monthCursor: Date;
+
   showToast: (message: string, variant?: "success" | "error") => void;
 
   appointments: Appointment[];
@@ -36,8 +35,8 @@ interface SidebarProps {
   assignments: Assignment[];
   personnel: Personnel[];
   onNewAssignment: () => void;
-  onAddPersonnel: (name: string) => void;
-  onRemovePersonnel: (id: string) => void;
+  onAddPersonnel: () => void;
+  onViewPersonnel: () => void;
 }
 
 export function Sidebar({
@@ -54,246 +53,237 @@ export function Sidebar({
   personnel,
   onNewAssignment,
   onAddPersonnel,
-  onRemovePersonnel,
+  onViewPersonnel,
 }: SidebarProps) {
   const now = useClock();
 
+  const [upcomingOpen, setUpcomingOpen] = useState(false);
+  const [unavailableOpen, setUnavailableOpen] = useState(false);
+
   const items: (Appointment | Assignment)[] =
     mode === "appointments" ? appointments : assignments;
-  const today = items.filter((a) => isSameDay(new Date(a.datetime), now));
-  const soon = items.filter((a) => getStatus(a.datetime, now) === "soon");
+
+  const today = items.filter((item) => isSameDay(new Date(item.datetime), now));
+
+  const soon = items.filter((item) => getStatus(item.datetime, now) === "soon");
+
   const upcoming = items.filter(
-    (a) => getStatus(a.datetime, now) === "upcoming",
+    (item) => getStatus(item.datetime, now) === "upcoming",
   );
 
   const monthLabel = monthCursor.toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
   });
+
   const itemsThisMonth = itemsInMonth(items, monthCursor);
 
+  const handleExport = () => {
+    try {
+      const filename =
+        mode === "appointments"
+          ? exportAppointmentsToPdf(
+              itemsInMonth(appointments, monthCursor) as Appointment[],
+            )
+          : exportAssignmentsToPdf(
+              itemsInMonth(assignments, monthCursor) as Assignment[],
+            );
+
+      showToast(`Saved "${filename}" to your Downloads folder`);
+    } catch {
+      showToast("Export failed — please try again.", "error");
+    }
+  };
+
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-rule bg-ink px-6 py-8 text-paper">
-      <div>
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-paper/50">
-          {now.toLocaleDateString(undefined, { weekday: "long" })}
-        </p>
-        <p className="mt-1 font-display text-2xl leading-tight">
-          {now.toLocaleDateString(undefined, { month: "long", day: "numeric" })}
-        </p>
-        <p className="mt-3 font-mono text-3xl tabular tracking-tight text-navy-light">
-          {formatClock(now)}
-        </p>
+    <>
+      <aside className="flex h-full w-72 shrink-0 flex-col border-r border-rule bg-ink px-6 py-8 text-paper">
+        <div>
+          {/* Date */}
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-paper/50">
+            {now.toLocaleDateString(undefined, {
+              weekday: "long",
+            })}
+          </p>
 
-        <div className="mt-6 flex rounded-md border border-paper/15 bg-paper/5 p-0.5">
-          <ModeTab
-            label="Appointments"
-            active={mode === "appointments"}
-            onClick={() => onModeChange("appointments")}
-          />
-          <ModeTab
-            label="Personnel"
-            active={mode === "personnel"}
-            onClick={() => onModeChange("personnel")}
-          />
-        </div>
+          <p className="mt-1 font-display text-2xl leading-tight">
+            {now.toLocaleDateString(undefined, {
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
 
-        <button
-          onClick={mode === "appointments" ? onNewAppointment : onNewAssignment}
-          className="mt-4 w-full rounded-md bg-navy px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-navy-light active:scale-[0.98]"
-        >
-          {mode === "appointments" ? "New appointment" : "New assignment"}
-        </button>
+          {/* Clock */}
+          <p className="mt-3 font-mono text-3xl tabular tracking-tight text-navy-light">
+            {formatClock(now)}
+          </p>
 
-        <button
-          onClick={() => {
-            try {
-              if (mode === "appointments") {
-                exportAppointmentsToPdf(
-                  itemsInMonth(appointments, monthCursor) as Appointment[],
-                );
-              } else {
-                exportAssignmentsToPdf(
-                  itemsInMonth(assignments, monthCursor) as Assignment[],
-                );
-              }
-              showToast(`Exported ${monthLabel} to PDF`);
-            } catch {
-              showToast("Export failed — please try again.", "error");
-            }
-          }}
-          disabled={itemsThisMonth.length === 0}
-          title={`Export ${monthLabel}`}
-          className="mt-2 w-full text-center text-xs font-medium text-navy-light hover:underline disabled:cursor-not-allowed disabled:text-paper/25 disabled:no-underline"
-        >
-          Export {monthLabel} (.pdf)
-        </button>
+          {/* Mode tabs */}
+          <div className="mt-7 flex rounded-md border border-paper/15 bg-paper/5 p-0.5">
+            <ModeTab
+              label="Appointments"
+              active={mode === "appointments"}
+              onClick={() => onModeChange("appointments")}
+            />
 
-        <dl className="mt-10 space-y-5">
-          <Stat label="Today" value={today.length} />
-          <Stat label="Starting soon" value={soon.length} accent />
-          <Stat label="Upcoming" value={upcoming.length} />
-        </dl>
-      </div>
-
-      {mode === "appointments" ? (
-        <div className="mt-8 flex min-h-0 flex-1 flex-col border-t border-paper/10 pt-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-paper/80">Unavailable</p>
-            <button
-              onClick={onMarkUnavailable}
-              className="text-xs font-medium text-navy-light hover:underline"
-            >
-              + Mark
-            </button>
+            <ModeTab
+              label="Personnel"
+              active={mode === "personnel"}
+              onClick={() => onModeChange("personnel")}
+            />
           </div>
 
-          {unavailablePeriods.length === 0 ? (
-            <p className="mt-2 text-xs leading-relaxed text-paper/40">
-              No blocked days. Mark holidays or days off to keep them from being
-              booked.
-            </p>
-          ) : (
-            <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-              {unavailablePeriods.map((p) => (
-                <li
-                  key={p.id}
-                  className="group flex items-start justify-between gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-paper/5"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-paper/80">{p.label}</p>
-                    <p className="font-mono text-paper/40 tabular">
-                      {formatRange(p.from, p.to)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onRemoveUnavailable(p.id)}
-                    className="shrink-0 text-paper/30 opacity-0 transition hover:text-red-300 group-hover:opacity-100"
-                    aria-label={`Remove ${p.label}`}
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* New appointment / assignment */}
+          <button
+            type="button"
+            onClick={
+              mode === "appointments" ? onNewAppointment : onNewAssignment
+            }
+            className="mt-4 w-full rounded-md bg-navy px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-navy-light active:scale-[0.98]"
+          >
+            {mode === "appointments" ? "New appointment" : "New assignment"}
+          </button>
+
+          {/* Export */}
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={itemsThisMonth.length === 0}
+            title={`Export ${monthLabel}`}
+            className="mt-3 w-full rounded-md border border-paper/20 bg-paper/5 px-4 py-2.5 text-center text-xs font-medium text-paper transition hover:bg-paper/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-paper/5"
+          >
+            Export {monthLabel} (.pdf)
+          </button>
+
+          {/* Stats */}
+          <dl className="mt-10 space-y-4">
+            <Stat label="Today" value={today.length} />
+
+            <Stat label="Starting soon" value={soon.length} accent />
+
+            <Stat
+              label="Upcoming"
+              value={upcoming.length}
+              onClick={() => setUpcomingOpen(true)}
+            />
+          </dl>
         </div>
-      ) : (
-        <PersonnelRoster
-          personnel={personnel}
-          onAdd={onAddPersonnel}
-          onRemove={onRemovePersonnel}
-        />
-      )}
 
-      <div className="mt-6 border-t border-paper/10 pt-4">
-        <p className="font-mono text-[11px] leading-relaxed text-paper/40">
-          {mode === "appointments" ? (
-            <>
-              Notifications fire{" "}
-              <span className="text-paper/60">15 min before</span> each
-              appointment, and again when it starts.
-            </>
-          ) : (
-            <>
-              Assignments sync live across every device signed in to this app.
-            </>
-          )}
-        </p>
-      </div>
+        {/* Appointment-specific section */}
+        {mode === "appointments" ? (
+          <div className="mt-8 flex flex-col border-t border-paper/10 pt-6">
+            {/* Section heading + Mark button */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-paper/80">Unavailable</p>
 
-      <p className="mt-3 text-center font-mono text-[10px] text-paper/30">
-        © {new Date().getFullYear()}{" "}
-        <a
-          href="https://andreiadlawan.vercel.app/"
-          onClick={(e) => {
-            e.preventDefault();
-            openExternalLink("https://andreiadlawan.vercel.app/");
-          }}
-          className="cursor-pointer text-paper/50 underline decoration-paper/20 underline-offset-2 hover:text-paper/80"
-        >
-          Andrei Gabrielle Adlawan
-        </a>
-      </p>
-    </aside>
-  );
-}
-
-function PersonnelRoster({
-  personnel,
-  onAdd,
-  onRemove,
-}: {
-  personnel: Personnel[];
-  onAdd: (name: string) => void;
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <div className="mt-8 flex min-h-0 flex-1 flex-col border-t border-paper/10 pt-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-paper/80">Personnel</p>
-      </div>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const input = e.currentTarget.elements.namedItem(
-            "name",
-          ) as HTMLInputElement;
-          const value = input.value.trim();
-          if (!value) return;
-          onAdd(value);
-          input.value = "";
-        }}
-        className="mt-2 flex gap-1.5"
-      >
-        <input
-          name="name"
-          placeholder="Add a name…"
-          className="min-w-0 flex-1 rounded-md border border-paper/15 bg-paper/5 px-2.5 py-1.5 text-xs text-paper placeholder:text-paper/30 outline-none focus:border-navy-light"
-        />
-        <button
-          type="submit"
-          className="shrink-0 rounded-md bg-navy px-2.5 py-1.5 text-xs font-medium text-paper hover:bg-navy-light"
-        >
-          Add
-        </button>
-      </form>
-
-      {personnel.length === 0 ? (
-        <p className="mt-2 text-xs leading-relaxed text-paper/40">
-          No one on the roster yet. Add names above so they show up in the
-          assignment form.
-        </p>
-      ) : (
-        <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-          {personnel.map((p) => (
-            <li
-              key={p.id}
-              className="group flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-paper/5"
-            >
-              <span className="truncate text-paper/80">{p.name}</span>
               <button
-                onClick={() => onRemove(p.id)}
-                className="shrink-0 text-paper/30 opacity-0 transition hover:text-red-300 group-hover:opacity-100"
-                aria-label={`Remove ${p.name}`}
+                type="button"
+                onClick={onMarkUnavailable}
+                className="text-xs font-medium text-navy-light hover:underline"
               >
-                ×
+                + Mark
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
+            </div>
 
-function formatRange(from: string, to: string): string {
-  const fromDate = parseDateOnly(from);
-  const toDate = parseDateOnly(to);
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  if (from === to) return fromDate.toLocaleDateString(undefined, opts);
-  return `${fromDate.toLocaleDateString(undefined, opts)} – ${toDate.toLocaleDateString(undefined, opts)}`;
+            {/* Open unavailable periods */}
+            <button
+              type="button"
+              onClick={() => setUnavailableOpen(true)}
+              className="mt-3 flex w-full items-center justify-between rounded-md border border-paper/20 bg-paper/5 px-4 py-3 text-left transition hover:bg-paper/10 active:scale-[0.98]"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-paper/80">
+                  Unavailable Periods
+                </p>
+
+                <p className="mt-1 text-xs text-paper/40">
+                  View blocked days and periods
+                </p>
+              </div>
+
+              <span className="ml-3 shrink-0 font-mono text-sm tabular text-paper/40">
+                {unavailablePeriods.length}
+              </span>
+            </button>
+          </div>
+        ) : (
+          /* Personnel section */
+          <div className="mt-8 flex flex-col gap-2 border-t border-paper/10 pt-6">
+            <button
+              type="button"
+              onClick={onAddPersonnel}
+              className="w-full rounded-md border border-paper/20 bg-paper/5 px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-paper/10"
+            >
+              Add Personnel
+            </button>
+
+            <button
+              type="button"
+              onClick={onViewPersonnel}
+              className="w-full rounded-md border border-paper/20 bg-paper/5 px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-paper/10"
+            >
+              View Personnel
+            </button>
+
+            <p className="mt-1 text-center text-xs text-paper/40">
+              {personnel.length} {personnel.length === 1 ? "person" : "people"}{" "}
+              on the roster
+            </p>
+          </div>
+        )}
+
+        {/* Bottom information */}
+        <div className="mt-8 border-t border-paper/10 pt-5">
+          <p className="font-mono text-[11px] leading-relaxed text-paper/40">
+            {mode === "appointments" ? (
+              <>
+                Notifications fire{" "}
+                <span className="text-paper/60">15 min before</span> each
+                appointment, and again when it starts.
+              </>
+            ) : (
+              <>
+                Assignments sync live across every device signed in to this app.
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <p className="mt-4 text-center font-mono text-[10px] text-paper/30">
+          © {new Date().getFullYear()}{" "}
+          <a
+            href="https://andreiadlawan.vercel.app/"
+            onClick={(event) => {
+              event.preventDefault();
+              openExternalLink("https://andreiadlawan.vercel.app/");
+            }}
+            className="cursor-pointer text-paper/50 underline decoration-paper/20 underline-offset-2 hover:text-paper/80"
+          >
+            Andrei Gabrielle Adlawan
+          </a>
+        </p>
+      </aside>
+
+      {/* Upcoming modal */}
+      {upcomingOpen && (
+        <UpcomingModal
+          mode={mode}
+          items={upcoming}
+          onClose={() => setUpcomingOpen(false)}
+        />
+      )}
+
+      {/* Unavailable periods modal */}
+      {unavailableOpen && (
+        <UnavailableModal
+          periods={unavailablePeriods}
+          onClose={() => setUnavailableOpen(false)}
+          onRemoveUnavailable={onRemoveUnavailable}
+        />
+      )}
+    </>
+  );
 }
 
 function ModeTab({
@@ -307,6 +297,7 @@ function ModeTab({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition ${
         active ? "bg-navy text-paper" : "text-paper/60 hover:text-paper"
@@ -321,19 +312,38 @@ function Stat({
   label,
   value,
   accent,
+  onClick,
 }: {
   label: string;
   value: number;
   accent?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="flex items-baseline justify-between">
+  const content = (
+    <>
       <dt className="text-sm text-paper/60">{label}</dt>
+
       <dd
-        className={`font-mono text-xl tabular ${accent && value > 0 ? "text-amber-light" : "text-paper"}`}
+        className={`font-mono text-xl tabular ${
+          accent && value > 0 ? "text-amber-light" : "text-paper"
+        }`}
       >
         {value}
       </dd>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="-mx-1 flex w-[calc(100%+0.5rem)] items-baseline justify-between rounded px-1 py-0.5 text-left transition hover:bg-paper/5"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className="flex items-baseline justify-between">{content}</div>;
 }

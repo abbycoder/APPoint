@@ -138,6 +138,45 @@ export function itemsInMonth<T extends { datetime: string }>(
   });
 }
 
+export interface DatedGroup<T> {
+  key: string;
+  label: string;
+  items: T[];
+}
+
+/** Groups a datetime-bearing list by calendar month, chronologically ordered, each group internally sorted. */
+export function groupItemsByMonth<T extends { datetime: string }>(
+  list: T[],
+): DatedGroup<T>[] {
+  const map = new Map<string, DatedGroup<T>>();
+
+  for (const item of list) {
+    const d = new Date(item.datetime);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: d.toLocaleDateString(undefined, {
+          month: "long",
+          year: "numeric",
+        }),
+        items: [],
+      });
+    }
+    map.get(key)!.items.push(item);
+  }
+
+  return [...map.values()]
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort(
+        (a, b) =>
+          new Date(a.datetime).getTime() - new Date(b.datetime).getTime(),
+      ),
+    }));
+}
+
 /** Formats a Date as `YYYY-MM-DDTHH:mm` for use in <input type="datetime-local">. */
 export function toDatetimeLocalValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
