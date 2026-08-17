@@ -3,12 +3,14 @@
   "productName": "APPoint",
   "version": "0.1.0",
   "identifier": "com.appoint.desktop",
+
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
+
   "app": {
     "windows": [
       {
@@ -25,9 +27,12 @@
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.googleapis.com"
     }
   },
+
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
+
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,5 +40,14 @@
       "icons/icon.ico",
       "icons/icon.icns"
     ]
+  },
+
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZGQUE1NDJDMTI4NTIwNEUKUldST0lJVVNMRlNxLzhIdnhVRHlxaXZ6MjB2a1BvM2x2bUZFNWMrZHhLbXBhaDAwT0c0anNoWlAK",
+      "endpoints": [
+        "https://github.com/abbycoder/APPoint/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
