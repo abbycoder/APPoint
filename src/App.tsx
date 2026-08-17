@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Update } from "@tauri-apps/plugin-updater";
 
+import { Download, RefreshCw, X } from "lucide-react";
+
 import {
   Appointment,
   AppointmentDraft,
@@ -42,8 +44,20 @@ export default function App() {
   // --------------------------------------------------
 
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false);
+
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const [showUpdateMenu, setShowUpdateMenu] = useState(false);
+
   const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+
+  // --------------------------------------------------
+  // Automatic update check
+  // --------------------------------------------------
 
   useEffect(() => {
     let cancelled = false;
@@ -56,23 +70,73 @@ export default function App() {
           setAvailableUpdate(update);
         }
       } catch (error) {
-        console.error(error);
+        console.error("Automatic update check failed:", error);
 
-        if (!cancelled) {
-          setUpdateError(String(error));
-        }
+        // Don't interrupt the user with an error on startup.
+        // They can use "Check for Updates" manually.
       }
     }
 
-    checkForAppUpdate();
+    const timer = window.setTimeout(() => {
+      checkForAppUpdate();
+    }, 1500);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, []);
 
+  // --------------------------------------------------
+  // Manual update check
+  // --------------------------------------------------
+
+  async function handleCheckForUpdates() {
+    if (checkingForUpdate || isUpdating) {
+      return;
+    }
+
+    try {
+      setCheckingForUpdate(true);
+      setUpdateError(null);
+      setUpdateMessage(null);
+
+      const update = await checkForUpdates();
+
+      if (update) {
+        setAvailableUpdate(update);
+        setShowUpdateMenu(true);
+        return;
+      }
+
+      setAvailableUpdate(null);
+
+      setUpdateMessage("You're already using the latest version.");
+
+      window.setTimeout(() => {
+        setUpdateMessage(null);
+      }, 4000);
+    } catch (error) {
+      console.error("Update check failed:", error);
+
+      setUpdateError("Unable to check for updates. Please try again later.");
+
+      window.setTimeout(() => {
+        setUpdateError(null);
+      }, 5000);
+    } finally {
+      setCheckingForUpdate(false);
+    }
+  }
+
+  // --------------------------------------------------
+  // Install update
+  // --------------------------------------------------
+
   async function handleInstallUpdate() {
-    if (!availableUpdate) return;
+    if (!availableUpdate || isUpdating) {
+      return;
+    }
 
     try {
       setIsUpdating(true);
@@ -83,6 +147,7 @@ export default function App() {
       console.error("Update installation failed:", error);
 
       setIsUpdating(false);
+
       setUpdateError("Unable to install the update. Please try again later.");
     }
   }
@@ -132,10 +197,13 @@ export default function App() {
   );
 
   const [unavailableFormOpen, setUnavailableFormOpen] = useState(false);
+
   const [unavailableListOpen, setUnavailableListOpen] = useState(false);
+
   const [editingPeriod, setEditingPeriod] = useState<UnavailablePeriod | null>(
     null,
   );
+
   const [deletePeriodTarget, setDeletePeriodTarget] =
     useState<UnavailablePeriod | null>(null);
 
@@ -167,6 +235,7 @@ export default function App() {
     } else {
       addPeriod(draft);
     }
+
     setUnavailableFormOpen(false);
     setEditingPeriod(null);
   }
@@ -179,6 +248,7 @@ export default function App() {
     if (deletePeriodTarget) {
       removePeriod(deletePeriodTarget.id);
     }
+
     setDeletePeriodTarget(null);
   }
 
@@ -236,7 +306,9 @@ export default function App() {
 
   function openNewAssignment(date?: Date) {
     setEditingAssignment(null);
+
     setAssignmentPrefillDate(date ? date.toISOString() : null);
+
     setAssignmentFormOpen(true);
   }
 
@@ -325,78 +397,164 @@ export default function App() {
   // --------------------------------------------------
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-paper">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-paper">
       {/* ==================================================
-          UPDATE DIALOG
+          UPDATE DOWNLOAD BUTTON
           ================================================== */}
 
       {availableUpdate && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-6">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="font-display text-2xl font-bold text-ink">
-              APPoint Update Available
-            </h2>
+        <button
+          type="button"
+          onClick={() => {
+            setUpdateError(null);
+            setShowUpdateMenu(true);
+          }}
+          disabled={isUpdating}
+          title={`APPoint ${availableUpdate.version} is available`}
+          aria-label={`Update APPoint to version ${availableUpdate.version}`}
+          className="fixed right-6 top-6 z-[90] flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition-all hover:scale-105 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isUpdating ? (
+            <RefreshCw className="h-5 w-5 animate-spin" />
+          ) : (
+            <Download className="h-5 w-5" />
+          )}
 
-            <p className="mt-3 text-sm text-ink/70">
-              A new version of APPoint is available.
-            </p>
+          {!isUpdating && (
+            <span
+              className="absolute right-0 top-0 h-3 w-3 rounded-full bg-green-300 ring-2 ring-white"
+              aria-hidden="true"
+            />
+          )}
+        </button>
+      )}
 
-            <div className="mt-4 rounded-xl bg-paper p-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-ink/60">Current version</span>
+      {/* ==================================================
+          UPDATE POPOVER
+          ================================================== */}
 
-                <span className="font-medium text-ink">
-                  {availableUpdate.currentVersion}
-                </span>
-              </div>
+      {showUpdateMenu && availableUpdate && (
+        <div className="fixed right-6 top-[4.75rem] z-[100] w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-black/10 bg-white p-5 shadow-2xl">
+          {/* Header */}
 
-              <div className="mt-2 flex justify-between">
-                <span className="text-ink/60">New version</span>
-
-                <span className="font-semibold text-ink">
-                  {availableUpdate.version}
-                </span>
-              </div>
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-100">
+              <Download className="h-5 w-5 text-green-600" />
             </div>
 
-            {availableUpdate.body && (
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">
-                  What's new
-                </p>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-lg font-bold text-ink">
+                Update available
+              </h2>
 
-                <p className="mt-2 whitespace-pre-line text-sm text-ink/70">
-                  {availableUpdate.body}
-                </p>
-              </div>
-            )}
-
-            {updateError && (
-              <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                {updateError}
+              <p className="mt-1 text-sm text-ink/60">
+                A newer version of APPoint is ready.
               </p>
-            )}
+            </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                disabled={isUpdating}
-                onClick={() => setAvailableUpdate(null)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-ink/70 hover:bg-black/5 disabled:opacity-50"
-              >
-                Later
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowUpdateMenu(false)}
+              disabled={isUpdating}
+              aria-label="Close update notification"
+              className="rounded-lg p-1.5 text-ink/50 transition-colors hover:bg-black/5 hover:text-ink disabled:opacity-50"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-              <button
-                type="button"
-                disabled={isUpdating}
-                onClick={handleInstallUpdate}
-                className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isUpdating ? "Updating..." : "Update Now"}
-              </button>
+          {/* Version information */}
+
+          <div className="mt-5 rounded-xl bg-paper p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink/55">Current version</span>
+
+              <span className="font-medium text-ink">
+                {availableUpdate.currentVersion}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-ink/55">New version</span>
+
+              <span className="font-semibold text-green-600">
+                {availableUpdate.version}
+              </span>
             </div>
           </div>
+
+          {/* Release notes */}
+
+          {availableUpdate.body && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink/45">
+                What's new
+              </p>
+
+              <div className="mt-2 max-h-36 overflow-y-auto whitespace-pre-line text-sm leading-6 text-ink/70">
+                {availableUpdate.body}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+
+          {updateError && (
+            <div className="mt-4 rounded-xl bg-red-50 p-3">
+              <p className="text-sm text-red-700">{updateError}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowUpdateMenu(false)}
+              disabled={isUpdating}
+              className="flex-1 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Later
+            </button>
+
+            <button
+              type="button"
+              onClick={handleInstallUpdate}
+              disabled={isUpdating}
+              className="flex-1 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isUpdating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Updating...
+                </span>
+              ) : (
+                "Update now"
+              )}
+            </button>
+          </div>
+
+          {isUpdating && (
+            <p className="mt-3 text-center text-xs text-ink/50">
+              APPoint will restart automatically when the update is installed.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ==================================================
+          UPDATE STATUS TOASTS
+          ================================================== */}
+
+      {updateMessage && (
+        <div className="fixed bottom-6 right-6 z-[100] rounded-xl border border-black/10 bg-white px-4 py-3 shadow-xl">
+          <p className="text-sm font-medium text-ink">{updateMessage}</p>
+        </div>
+      )}
+
+      {updateError && !showUpdateMenu && (
+        <div className="fixed bottom-6 right-6 z-[100] max-w-sm rounded-xl border border-red-200 bg-white px-4 py-3 shadow-xl">
+          <p className="text-sm text-red-700">{updateError}</p>
         </div>
       )}
 
@@ -428,11 +586,11 @@ export default function App() {
       <main className="flex-1 overflow-y-auto px-10 py-10">
         <div className="mx-auto max-w-2xl">
           <div className="flex items-baseline gap-2">
-            <h1 className="font-display font-bold text-3xl text-ink">
+            <h1 className="font-display text-3xl font-bold text-ink">
               APPoint
             </h1>
 
-            <span className="italic text-sm text-ink/60">
+            <span className="text-sm italic text-ink/60">
               Your appointments, simplified.
             </span>
           </div>
@@ -442,6 +600,29 @@ export default function App() {
               ? "Who's visiting, when, and why."
               : "Who's assigned where, and when."}
           </p>
+
+          {/* ==================================================
+              MANUAL UPDATE CHECK
+              ================================================== */}
+
+          <div className="mt-4 flex items-center">
+            <button
+              type="button"
+              onClick={handleCheckForUpdates}
+              disabled={checkingForUpdate || isUpdating}
+              className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium text-ink/65 transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  checkingForUpdate ? "animate-spin" : ""
+                }`}
+              />
+
+              {checkingForUpdate
+                ? "Checking for updates..."
+                : "Check for Updates"}
+            </button>
+          </div>
 
           <div className="mt-8">
             {isAppointments ? (

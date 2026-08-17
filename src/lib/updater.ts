@@ -16,7 +16,7 @@ export async function checkForUpdates(): Promise<Update | null> {
     return update;
   } catch (error) {
     console.error("Failed to check for updates:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -27,6 +27,7 @@ export async function installUpdate(update: Update): Promise<void> {
     );
 
     await update.downloadAndInstall();
+
     await relaunch();
   } catch (error) {
     console.error("Failed to install update:", error);
