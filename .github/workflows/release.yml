@@ -148,7 +148,7 @@ jobs:
       # --------------------------------------------------
 
       - name: Build and release APPoint
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@v0.5.20
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -173,7 +173,7 @@ jobs:
 
           prerelease: false
 
-          includeUpdaterJson: true
+          uploadUpdaterJson: true 
 
           updaterJsonPreferNsis: true
 
