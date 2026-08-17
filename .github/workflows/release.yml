@@ -1,3 +1,4 @@
+```yaml
 name: Release APPoint
 
 on:
@@ -94,7 +95,33 @@ jobs:
         run: npm ci
 
       # --------------------------------------------------
-      # Build and publish
+      # Verify source
+      # --------------------------------------------------
+
+      - name: Verify release source
+        run: |
+          node -e "console.log('Git commit:', require('child_process').execSync('git rev-parse HEAD').toString().trim())"
+          node -e "console.log('Git ref:', process.env.GITHUB_REF)"
+          node -e "console.log('Git ref name:', process.env.GITHUB_REF_NAME)"
+          node -e "console.log('Package version:', require('./package.json').version)"
+
+      # --------------------------------------------------
+      # Build frontend explicitly
+      # --------------------------------------------------
+
+      - name: Build frontend
+        run: npm run build
+
+      # --------------------------------------------------
+      # Verify frontend build
+      # --------------------------------------------------
+
+      - name: Verify frontend build
+        run: |
+          node -e "const fs=require('fs'); console.log('dist exists:', fs.existsSync('dist')); console.log('dist contents:', fs.readdirSync('dist')); console.log('assets contents:', fs.existsSync('dist/assets') ? fs.readdirSync('dist/assets') : 'NO ASSETS DIRECTORY')"
+
+      # --------------------------------------------------
+      # Build and publish Tauri application
       # --------------------------------------------------
 
       - name: Build and release APPoint
@@ -127,3 +154,4 @@ jobs:
           updaterJsonPreferNsis: true
 
           args: ${{ matrix.args }}
+```
