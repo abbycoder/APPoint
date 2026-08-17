@@ -69,6 +69,13 @@ jobs:
             patchelf \
             xdg-utils
 
+      - name: Cache Tauri linuxdeploy binaries
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tauri
+          key: tauri-linuxdeploy-${{ runner.os }}
+
       # --------------------------------------------------
       # Node
       # --------------------------------------------------
