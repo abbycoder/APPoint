@@ -36,6 +36,112 @@ import { useToast } from "./store/useToast";
 
 import { checkForUpdates, installUpdate } from "./lib/updater";
 
+// --------------------------------------------------
+// Loading State
+// --------------------------------------------------
+
+function LoadingState({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-[320px] flex-col items-center justify-center">
+      <div className="relative h-16 w-16">
+        <svg viewBox="0 0 64 64" className="h-16 w-16">
+          {/* Face */}
+          <circle
+            cx="32"
+            cy="32"
+            r="28"
+            fill="#EFF6FF"
+            stroke="#DBEAFE"
+            strokeWidth="2"
+          />
+
+          {/* Progress arc sweeping around the rim */}
+          <circle
+            cx="32"
+            cy="32"
+            r="28"
+            fill="none"
+            stroke="#2563EB"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="44 176"
+            opacity="0.5"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 32 32"
+              to="360 32 32"
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+          </circle>
+
+          {/* Hour ticks */}
+          {[0, 90, 180, 270].map((deg) => (
+            <line
+              key={deg}
+              x1="32"
+              y1="6"
+              x2="32"
+              y2="10"
+              stroke="#93C5FD"
+              strokeWidth="2"
+              strokeLinecap="round"
+              transform={`rotate(${deg} 32 32)`}
+            />
+          ))}
+
+          {/* Hour hand */}
+          <line
+            x1="32"
+            y1="32"
+            x2="32"
+            y2="20"
+            stroke="#1E3A8A"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 32 32"
+              to="360 32 32"
+              dur="7s"
+              repeatCount="indefinite"
+            />
+          </line>
+
+          {/* Minute hand */}
+          <line
+            x1="32"
+            y1="32"
+            x2="32"
+            y2="12"
+            stroke="#2563EB"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 32 32"
+              to="360 32 32"
+              dur="1.8s"
+              repeatCount="indefinite"
+            />
+          </line>
+
+          {/* Center pin */}
+          <circle cx="32" cy="32" r="2.5" fill="#1E3A8A" />
+        </svg>
+      </div>
+
+      <p className="mt-5 text-sm font-medium text-ink/60">{message}</p>
+    </div>
+  );
+}
+
 export default function App() {
   const [mode, setMode] = useState<SidebarMode>("appointments");
 
@@ -627,7 +733,7 @@ export default function App() {
           <div className="mt-8">
             {isAppointments ? (
               appointmentsLoading ? (
-                <p className="text-sm text-slate">Loading appointments...</p>
+                <LoadingState message="Loading appointments..." />
               ) : (
                 <CalendarView
                   appointments={appointments}
@@ -640,7 +746,7 @@ export default function App() {
                 />
               )
             ) : assignmentsLoading ? (
-              <p className="text-sm text-slate">Loading assignments…</p>
+              <LoadingState message="Loading assignments..." />
             ) : (
               <PersonnelCalendarView
                 assignments={assignments}
