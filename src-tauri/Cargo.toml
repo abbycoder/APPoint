@@ -1,6 +1,6 @@
 [package]
 name = "appoint"
-version = "0.1.8"
+version = "0.1.9"
 description = "An appointment app tracker with reminders"
 edition = "2021"
 

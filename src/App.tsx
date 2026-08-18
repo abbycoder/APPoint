@@ -150,15 +150,10 @@ export default function App() {
   // --------------------------------------------------
 
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
-
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
-
   const [isUpdating, setIsUpdating] = useState(false);
-
   const [showUpdateMenu, setShowUpdateMenu] = useState(false);
-
   const [updateError, setUpdateError] = useState<string | null>(null);
-
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
 
   // --------------------------------------------------
@@ -216,7 +211,6 @@ export default function App() {
       }
 
       setAvailableUpdate(null);
-
       setUpdateMessage("You're already using the latest version.");
 
       window.setTimeout(() => {
@@ -293,9 +287,7 @@ export default function App() {
   useNotificationScheduler(appointments, markNotified);
 
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
-
   const [apptFormOpen, setApptFormOpen] = useState(false);
-
   const [apptPrefillDate, setApptPrefillDate] = useState<string | null>(null);
 
   const [deleteApptTarget, setDeleteApptTarget] = useState<Appointment | null>(
@@ -303,7 +295,6 @@ export default function App() {
   );
 
   const [unavailableFormOpen, setUnavailableFormOpen] = useState(false);
-
   const [unavailableListOpen, setUnavailableListOpen] = useState(false);
 
   const [editingPeriod, setEditingPeriod] = useState<UnavailablePeriod | null>(
@@ -412,9 +403,7 @@ export default function App() {
 
   function openNewAssignment(date?: Date) {
     setEditingAssignment(null);
-
     setAssignmentPrefillDate(date ? date.toISOString() : null);
-
     setAssignmentFormOpen(true);
   }
 
@@ -457,7 +446,6 @@ export default function App() {
   );
 
   const [personnelFormOpen, setPersonnelFormOpen] = useState(false);
-
   const [personnelListOpen, setPersonnelListOpen] = useState(false);
 
   const [deletePersonnelTarget, setDeletePersonnelTarget] =
@@ -516,9 +504,9 @@ export default function App() {
             setShowUpdateMenu(true);
           }}
           disabled={isUpdating}
-          title={`APPoint ${availableUpdate.version} is available`}
+          title={`Update APPoint to version ${availableUpdate.version}`}
           aria-label={`Update APPoint to version ${availableUpdate.version}`}
-          className="fixed right-6 top-6 z-[90] flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition-all hover:scale-105 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="fixed right-6 top-6 z-[90] flex h-11 w-11 items-center justify-center rounded-full bg-navy text-paper shadow-lg transition-all hover:scale-105 hover:bg-navy-light disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isUpdating ? (
             <RefreshCw className="h-5 w-5 animate-spin" />
@@ -528,7 +516,7 @@ export default function App() {
 
           {!isUpdating && (
             <span
-              className="absolute right-0 top-0 h-3 w-3 rounded-full bg-green-300 ring-2 ring-white"
+              className="absolute right-0 top-0 h-3 w-3 rounded-full bg-blue-400 ring-2 ring-white"
               aria-hidden="true"
             />
           )}
@@ -544,8 +532,8 @@ export default function App() {
           {/* Header */}
 
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-100">
-              <Download className="h-5 w-5 text-green-600" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100">
+              <Download className="h-5 w-5 text-blue-600" />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -583,7 +571,7 @@ export default function App() {
             <div className="mt-2 flex items-center justify-between text-sm">
               <span className="text-ink/55">New version</span>
 
-              <span className="font-semibold text-green-600">
+              <span className="font-semibold text-blue-600">
                 {availableUpdate.version}
               </span>
             </div>
@@ -627,7 +615,7 @@ export default function App() {
               type="button"
               onClick={handleInstallUpdate}
               disabled={isUpdating}
-              className="flex-1 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex-1 rounded-xl bg-navy px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-navy-light disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isUpdating ? (
                 <span className="flex items-center justify-center gap-2">
@@ -653,7 +641,7 @@ export default function App() {
           ================================================== */}
 
       {updateMessage && (
-        <div className="fixed bottom-6 right-6 z-[100] rounded-xl border border-black/10 bg-white px-4 py-3 shadow-xl">
+        <div className="fixed bottom-6 right-6 z-[100] rounded-xl border border-blue-100 bg-white px-4 py-3 shadow-xl">
           <p className="text-sm font-medium text-ink">{updateMessage}</p>
         </div>
       )}
